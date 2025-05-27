@@ -30,8 +30,11 @@ def check_availability():
             "start_date": today.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d")
         }
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
 
-        response = requests.get(API_URL, params=params, timeout=10)
+        response = requests.get(API_URL, params=params, headers=headers, timeout=10)
         data = response.json()
 
         for date_str, info in data.get("availability", {}).items():
