@@ -35,13 +35,30 @@ def check_availability():
         }
 
         response = requests.get(API_URL, params=params, headers=headers, timeout=10)
-        data = response.json()
+
+        try:
+            data = response.json()
+        except Exception as json_err:
+            print(f"[{datetime.now()}] JSON decode error: {json_err}")
+            print(f"[{datetime.now()}] Response text: {response.text[:500]}...")
+            return []
+
+        print(f"[{datetime.now()}] Fetched data preview: {str(data)[:500]}...")
 
         for date_str, info in data.get("availability", {}).items():
+            # Check for direct status
             if info.get("status") == "Available":
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 if today <= parsed_date <= end_date:
                     available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
+
+            # Or check deeper in daily_availability or segments if present
+            if "daily_availability" in info:
+                for segment in info["daily_availability"].values():
+                    if segment.get("status") == "Available":
+                        parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                        if today <= parsed_date <= end_date:
+                            available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
 
         return available_dates
     except Exception as e:
