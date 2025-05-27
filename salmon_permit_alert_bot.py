@@ -20,15 +20,17 @@ PERMIT_ID = "234623"
 PERMIT_WEB_URL = f"https://www.recreation.gov/permits/{PERMIT_ID}"
 API_URL = f"https://www.recreation.gov/api/permititinerary/availability/product/{PERMIT_ID}"
 
+# Date range config (optionally override with env vars)
+START_DATE = datetime.now().date()
+END_DATE = datetime(datetime.now().year, 10, 8).date()
+
 def check_availability():
     try:
-        today = datetime.now().date()
-        end_date = datetime(today.year, 10, 8).date()
         available_dates = []
 
         params = {
-            "start_date": today.strftime("%Y-%m-%d"),
-            "end_date": end_date.strftime("%Y-%m-%d")
+            "start_date": START_DATE.strftime("%Y-%m-%d"),
+            "end_date": END_DATE.strftime("%Y-%m-%d")
         }
         headers = {
             "User-Agent": "Mozilla/5.0"
@@ -46,21 +48,18 @@ def check_availability():
         print(f"[{datetime.now()}] Fetched data preview: {str(data)[:500]}...")
 
         for date_str, info in data.get("availability", {}).items():
-            # Check for direct status
-            if info.get("status") == "Available":
-                parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                if today <= parsed_date <= end_date:
+            parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+            if START_DATE <= parsed_date <= END_DATE:
+                if info.get("status") == "Available":
                     available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
 
-            # Or check deeper in daily_availability or segments if present
-            if "daily_availability" in info:
-                for segment in info["daily_availability"].values():
-                    if segment.get("status") == "Available":
-                        parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                        if today <= parsed_date <= end_date:
+                if "daily_availability" in info:
+                    for segment in info["daily_availability"].values():
+                        if segment.get("status") == "Available":
                             available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
 
-        return available_dates
+        return sorted(set(available_dates))
     except Exception as e:
         print(f"[{datetime.now()}] Error checking availability: {e}")
         return []
