@@ -7,12 +7,16 @@ from email.message import EmailMessage
 import smtplib
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 
-# CONFIG - Replace with environment variables or secrets in deployment
-EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "ianlrvd@gmail.com")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "JulioRod44!")
-RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL", "ianlrvd@gmail.com")
-SMS_GATEWAY = os.getenv("SMS_GATEWAY", "1234567890@vtext.com")
+# Load environment variables from .env file
+load_dotenv()
+
+# CONFIG - Values stored in .env (not hardcoded)
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
+SMS_GATEWAY = os.getenv("SMS_GATEWAY")
 PERMIT_URL = "https://www.recreation.gov/permits/234623"
 
 
