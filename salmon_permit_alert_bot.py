@@ -1,4 +1,6 @@
 # salmon_permit_alert_bot.py
+# Automatically checks Middle Fork Salmon River permit availability and sends email/SMS alerts using the Recreation.gov API.
+
 import requests
 from email.message import EmailMessage
 import smtplib
@@ -6,16 +8,17 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
+
+# CONFIG - Values stored in .env (not hardcoded)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 SMS_GATEWAY = os.getenv("SMS_GATEWAY")
-
 PERMIT_ID = "234623"
-API_URL = f"https://www.recreation.gov/api/permititinerary/availability/product/{PERMIT_ID}"
 PERMIT_WEB_URL = f"https://www.recreation.gov/permits/{PERMIT_ID}"
+API_URL = f"https://www.recreation.gov/api/permititinerary/availability/product/{PERMIT_ID}"
 
 def check_availability():
     try:
@@ -23,16 +26,16 @@ def check_availability():
         end_date = datetime(today.year, 10, 8).date()
         available_dates = []
 
-        # API expects date range in format YYYY-MM-DD
         params = {
             "start_date": today.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d")
         }
+
         response = requests.get(API_URL, params=params, timeout=10)
         data = response.json()
 
-        for date_str, day_info in data.get("availability", {}).items():
-            if day_info.get("status") == "Available":
+        for date_str, info in data.get("availability", {}).items():
+            if info.get("status") == "Available":
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 if today <= parsed_date <= end_date:
                     available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
@@ -53,7 +56,7 @@ def send_alert(dates):
     body = f"\U0001F389 Available Dates:\n" + "\n".join(dates) + f"\n\nBook here: {PERMIT_WEB_URL}\nChecked: {datetime.now()}"
     msg.set_content(body)
 
-    print(f"[{datetime.now()}] Sending alert:\n{body}")  # DEBUG
+    print(f"[{datetime.now()}] Sending alert:\n{body}")
 
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
