@@ -1,46 +1,41 @@
 # salmon_permit_alert_bot.py
-# Automatically checks Middle Fork Salmon River permit availability and sends email/SMS alerts.
-
 import requests
-from bs4 import BeautifulSoup
 from email.message import EmailMessage
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
-
-# CONFIG - Values stored in .env (not hardcoded)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 SMS_GATEWAY = os.getenv("SMS_GATEWAY")
-PERMIT_URL = "https://www.recreation.gov/permits/234623"
+
+PERMIT_ID = "234623"
+API_URL = f"https://www.recreation.gov/api/permititinerary/availability/product/{PERMIT_ID}"
+PERMIT_WEB_URL = f"https://www.recreation.gov/permits/{PERMIT_ID}"
 
 def check_availability():
     try:
-        response = requests.get(PERMIT_URL, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        available_dates = []
-
-        # Set range: from today to Oct 8 this year
         today = datetime.now().date()
         end_date = datetime(today.year, 10, 8).date()
+        available_dates = []
 
-        for tag in soup.find_all(attrs={"aria-label": True}):
-            label = tag["aria-label"]
-            print(f"[{datetime.now()}] Found aria-label: {label}")  # DEBUG
-            if "Available" in label:
-                try:
-                    date_part = label.split(" - ")[0].strip()
-                    parsed_date = datetime.strptime(date_part, "%A, %B %d, %Y").date()
-                    if today <= parsed_date <= end_date:
-                        available_dates.append(date_part)
-                except Exception as e:
-                    print(f"[{datetime.now()}] Failed to parse label: {label} - {e}")
+        # API expects date range in format YYYY-MM-DD
+        params = {
+            "start_date": today.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d")
+        }
+        response = requests.get(API_URL, params=params, timeout=10)
+        data = response.json()
+
+        for date_str, day_info in data.get("availability", {}).items():
+            if day_info.get("status") == "Available":
+                parsed_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                if today <= parsed_date <= end_date:
+                    available_dates.append(parsed_date.strftime("%A, %B %d, %Y"))
 
         return available_dates
     except Exception as e:
@@ -55,11 +50,10 @@ def send_alert(dates):
     if SMS_GATEWAY:
         msg['To'].append(SMS_GATEWAY)
 
-    date_list = '\n'.join(dates)
-    body = f"\U0001F389 Available Dates:\n{date_list}\n\nBook ASAP: {PERMIT_URL}\nChecked: {datetime.now()}"
+    body = f"\U0001F389 Available Dates:\n" + "\n".join(dates) + f"\n\nBook here: {PERMIT_WEB_URL}\nChecked: {datetime.now()}"
     msg.set_content(body)
 
-    print(f"[{datetime.now()}] Sending alert to {msg['To']} with body:\n{body}")  # DEBUG
+    print(f"[{datetime.now()}] Sending alert:\n{body}")  # DEBUG
 
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
